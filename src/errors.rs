@@ -14,5 +14,7 @@ pub enum Error {
     #[error("Missing argument: {name:?}")]
     MissingArgumentError {
         name: String,
-    }
+    },
+    #[error("Vault token file was not found")]
+    VaultTokenNotFound
 }

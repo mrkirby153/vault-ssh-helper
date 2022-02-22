@@ -12,26 +12,28 @@ use crate::Error::MissingArgumentError;
 pub struct Config {
     /// The auth method to use
     #[clap(short = 'a', long)]
-    auth: Option<String>,
+    pub auth: Option<String>,
     /// The auth mount
     #[clap(short = 'm', long)]
-    auth_mount: Option<String>,
+    pub auth_mount: Option<String>,
     /// The identity file to use. Defaults to ~/.ssh/id_rsa
     #[clap(short, long)]
-    identity: Option<String>,
+    pub identity: Option<String>,
     /// Persist the vault token
     #[clap(short, long)]
-    persist: Option<bool>,
+    pub persist: Option<bool>,
     /// The role to use when authenticating
     #[clap(short, long)]
-    role: Option<String>,
+    pub role: Option<String>,
     /// Where on disk to store the keys. Defaults to ~/.local/share/vault_ssh_helper/keys
     #[clap(short, long)]
-    key_path: Option<String>,
-
+    pub key_path: Option<String>,
     /// Where on disk the token is stored. Defaults to ~/.vault_token
     #[clap(short, long)]
-    token_path: Option<String>
+    pub token_path: Option<String>,
+    /// The vault server to communicate with
+    #[clap(short, long)]
+    pub vault_address: Option<String>,
 }
 
 impl Config {
@@ -48,6 +50,7 @@ impl Config {
             role: None,
             key_path: None,
             token_path: None,
+            vault_address: None,
         }
     }
 
@@ -76,7 +79,8 @@ pub fn merge(config: Config, cli_config: Config) -> Result<Config> {
         persist: do_merge("persist", config.persist, cli_config.persist, Some(true), true)?,
         role: do_merge("role", config.role, cli_config.role, None, true)?,
         key_path: expand_shell(do_merge("key_path", config.key_path, cli_config.key_path, Some(String::from("~/.local/share/vault_ssh_helper/keys")), true)?),
-        token_path: expand_shell(do_merge("token_path", config.token_path, cli_config.token_path, Some(String::from("~/.vault-token")), true)?)
+        token_path: expand_shell(do_merge("token_path", config.token_path, cli_config.token_path, Some(String::from("~/.vault-token")), true)?),
+        vault_address: do_merge("vault_address", config.vault_address, cli_config.vault_address, Some(String::from("https://localhost:8200")), true)?,
     })
 }
 
