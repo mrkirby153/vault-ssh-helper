@@ -56,7 +56,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         host, ssh_path
     ));
     if let Err(e) = vault_ssh_helper::ssh::check_ssh_file(&ssh_path[..]) {
-        console.err(&format!("Error: {}", e)[..])
+        console.err(&format!("Error: {}", e)[..]);
+        exit(1);
     }
     let certificate =
         vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config, &client).await?;
