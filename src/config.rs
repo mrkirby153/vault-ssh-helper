@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use serde::Deserialize;
 
-use crate::{Error, Opts};
 use crate::Error::MissingArgumentError;
+use crate::{Error, Opts};
 
 #[derive(Deserialize, Debug, Default, Parser)]
 #[clap(version, about)]
@@ -74,13 +74,49 @@ impl Config {
 pub fn merge(config: Config, cli_config: Opts) -> Result<Config> {
     Ok(Config {
         auth: do_merge("auth", config.auth, cli_config.auth, None, true)?,
-        auth_mount: do_merge("auth_mount", config.auth_mount, cli_config.auth_mount, Some(String::from("ssh")), true)?,
-        identity: expand_shell(do_merge("identity", config.identity, cli_config.identity, Some(String::from("~/.ssh/id_rsa")), true)?),
-        persist: do_merge("persist", config.persist, cli_config.persist, Some(true), true)?,
+        auth_mount: do_merge(
+            "auth_mount",
+            config.auth_mount,
+            cli_config.auth_mount,
+            Some(String::from("ssh")),
+            true,
+        )?,
+        identity: expand_shell(do_merge(
+            "identity",
+            config.identity,
+            cli_config.identity,
+            Some(String::from("~/.ssh/id_rsa")),
+            true,
+        )?),
+        persist: do_merge(
+            "persist",
+            config.persist,
+            cli_config.persist,
+            Some(true),
+            true,
+        )?,
         role: do_merge("role", config.role, cli_config.role, None, true)?,
-        key_path: expand_shell(do_merge("key_path", config.key_path, cli_config.key_path, Some(String::from("~/.local/share/vault_ssh_helper/keys")), true)?),
-        token_path: expand_shell(do_merge("token_path", config.token_path, cli_config.token_path, Some(String::from("~/.vault-token")), true)?),
-        vault_address: do_merge("vault_address", config.vault_address, cli_config.vault_address, Some(String::from("https://localhost:8200")), true)?,
+        key_path: expand_shell(do_merge(
+            "key_path",
+            config.key_path,
+            cli_config.key_path,
+            Some(String::from("~/.local/share/vault_ssh_helper/keys")),
+            true,
+        )?),
+        token_path: expand_shell(do_merge(
+            "token_path",
+            config.token_path,
+            cli_config.token_path,
+            Some(String::from("~/.vault-token")),
+            true,
+        )?),
+        vault_address: do_merge(
+            "vault_address",
+            config.vault_address,
+            cli_config.vault_address,
+            Some(String::from("https://localhost:8200")),
+            true,
+        )?,
     })
 }
 
@@ -92,7 +128,13 @@ fn expand_shell(str: Option<String>) -> Option<String> {
     }
 }
 
-fn do_merge<T>(name: &str, config: Option<T>, cli_config: Option<T>, default: Option<T>, required: bool) -> Result<Option<T>> {
+fn do_merge<T>(
+    name: &str,
+    config: Option<T>,
+    cli_config: Option<T>,
+    default: Option<T>,
+    required: bool,
+) -> Result<Option<T>> {
     match cli_config {
         Some(t) => Ok(Some(t)),
         None => match config {
@@ -101,12 +143,14 @@ fn do_merge<T>(name: &str, config: Option<T>, cli_config: Option<T>, default: Op
                 Some(t) => Ok(Some(t)),
                 None => {
                     if required {
-                        Err(anyhow!(MissingArgumentError {name: String::from(name)}))
+                        Err(anyhow!(MissingArgumentError {
+                            name: String::from(name)
+                        }))
                     } else {
                         Ok(None)
                     }
                 }
-            }
-        }
+            },
+        },
     }
 }

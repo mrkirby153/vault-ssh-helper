@@ -3,15 +3,14 @@ extern crate core;
 use anyhow::Result;
 use clap::Parser;
 
-use crate::config::{Config, merge};
+use crate::config::{merge, Config};
 pub use crate::errors::Error;
 
 pub mod config;
-mod errors;
-pub mod vault;
 pub mod console;
+mod errors;
 pub mod ssh;
-
+pub mod vault;
 
 #[derive(Parser)]
 #[clap(version, about)]
@@ -49,7 +48,6 @@ pub struct Opts {
     /// Any additional ssh arguments
     pub args: Vec<String>,
 }
-
 
 /// Loads the configuration from the given path
 pub fn load_config(path: &str, opts: Opts) -> Result<Config> {

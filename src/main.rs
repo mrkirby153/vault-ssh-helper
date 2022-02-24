@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::path::Path;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
 
-use vault_ssh_helper::{load_config, Opts};
 use vault_ssh_helper::console::{ColorConsole, Console, PlainConsole};
 use vault_ssh_helper::vault::get_vault_client;
+use vault_ssh_helper::{load_config, Opts};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -26,7 +26,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Load the config
     let config = load_config(&get_config_path()?, opts)?;
 
-    let stale_keys_removed = vault_ssh_helper::ssh::clean_stale_keys(config.key_path.as_ref().unwrap(), console);
+    let stale_keys_removed =
+        vault_ssh_helper::ssh::clean_stale_keys(config.key_path.as_ref().unwrap(), console);
     if stale_keys_removed > 0 {
         console.info(&format!("Cleaned up {} stale keys...", stale_keys_removed))
     }
@@ -50,11 +51,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             exit(1);
         }
     };
-    console.info(&*format!("Attempting to connect to {} with ssh key {}...", host, ssh_path));
+    console.info(&*format!(
+        "Attempting to connect to {} with ssh key {}...",
+        host, ssh_path
+    ));
     if let Err(e) = vault_ssh_helper::ssh::check_ssh_file(&ssh_path[..]) {
         console.err(&format!("Error: {}", e)[..])
     }
-    let certificate = vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config, &client).await?;
+    let certificate =
+        vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config, &client).await?;
     console.info(&format!("Using {} to connect to {}", certificate, host));
     // Start ssh
     let ssh_args = vec![&host[..], "-i", ssh_path, "-i", &certificate];
@@ -62,7 +67,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for arg in args {
         ssh_args.push(arg);
     }
-    Command::new("ssh").args(ssh_args).stdout(std::process::Stdio::inherit()).stdin(std::process::Stdio::inherit()).stderr(std::process::Stdio::inherit()).output()?;
+    Command::new("ssh")
+        .args(ssh_args)
+        .stdout(std::process::Stdio::inherit())
+        .stdin(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()?;
     Ok(())
 }
 
@@ -82,8 +92,7 @@ fn get_config_path() -> Result<String> {
                 Ok(v)
             } else {
                 Err(anyhow!("Config file at {} not found", v))
-            }
-
+            };
         } else {
             let path = shellexpand::tilde("~/.config/vault_ssh_helper.toml");
             if file_exists(&path[..]) {

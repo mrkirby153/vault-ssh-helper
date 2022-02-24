@@ -3,18 +3,14 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Configuration parse failed")]
-    ConfigParseError {
-        source: toml::de::Error
-    },
+    ConfigParseError { source: toml::de::Error },
     #[error("An I/O error occurred")]
     IOError {
         #[from]
-        source: std::io::Error
+        source: std::io::Error,
     },
     #[error("Missing argument: {name:?}")]
-    MissingArgumentError {
-        name: String,
-    },
+    MissingArgumentError { name: String },
     #[error("Vault token file was not found")]
-    VaultTokenNotFound
+    VaultTokenNotFound,
 }

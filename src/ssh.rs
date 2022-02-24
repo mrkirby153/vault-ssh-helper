@@ -1,8 +1,6 @@
+use std::path::PathBuf;
+use std::process::Command;
 use std::{fs, path};
-use std::fs::Permissions;
-use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
-use std::process::{Command, ExitStatus};
 
 use anyhow::{anyhow, Result};
 use sshkeys::Certificate;
@@ -12,9 +10,9 @@ use vaultrs::client::VaultClient;
 use vaultrs::error::ClientError;
 use vaultrs::ssh;
 
-use crate::Config;
 use crate::console::Console;
 use crate::ssh::Error::KeystoreDirNotFound;
+use crate::Config;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -40,7 +38,10 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
             return Ok(false);
         }
     };
-    let curr_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    let curr_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let is_expired = curr_time > cert.valid_before;
     if !cert.valid_principals.contains(&user.to_string()) || is_expired {
         Ok(false)
@@ -50,7 +51,12 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
 }
 
 /// Gets the signed key if it is valid, otherwise sign it
-pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config, vault: &VaultClient) -> Result<String> {
+pub async fn get_or_sign_key(
+    host: &str,
+    logger: &dyn Console,
+    cfg: &Config,
+    vault: &VaultClient,
+) -> Result<String> {
     let keyfile = get_key_from_keystore(host, cfg)?;
     let pubkey = fs::read_to_string(private_to_public(cfg.identity.as_ref().unwrap()))?;
     let user = get_ssh_user(host)?;
@@ -59,7 +65,9 @@ pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config, vau
     let mut needs_sign = false;
     if let Err(_) = check_ssh_file(&keyfile) {
         // Keyfile does not exist
-        logger.info(&format!("Certificate does not exist. Retrieving a new one..."));
+        logger.info(&format!(
+            "Certificate does not exist. Retrieving a new one..."
+        ));
         needs_sign = true;
     } else if !is_certificate_valid(&keyfile, &user)? {
         logger.info(&format!("Certificate is no longer valid, refreshing..."));
@@ -69,7 +77,10 @@ pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config, vau
         logger.info("Refreshing certificate...");
         let result = sign_key(&user, cfg, vault, &pubkey).await?;
         fs::write(&keyfile, result.as_bytes())?;
-        fs::set_permissions(&keyfile, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
+        fs::set_permissions(
+            &keyfile,
+            std::os::unix::fs::PermissionsExt::from_mode(0o700),
+        )?;
         logger.info(&format!("Wrote certificate to {}", keyfile));
     }
     Ok(keyfile)
@@ -78,21 +89,22 @@ pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config, vau
 async fn sign_key(user: &str, cfg: &Config, vault: &VaultClient, pubkey: &str) -> Result<String> {
     let mut builder = SignSSHKeyRequest::builder();
     builder.valid_principals(user);
-    let cert = ssh::ca::sign(vault, cfg.auth_mount.as_ref().unwrap(), cfg.role.as_ref().unwrap(), pubkey, Some(&mut builder)).await;
+    let cert = ssh::ca::sign(
+        vault,
+        cfg.auth_mount.as_ref().unwrap(),
+        cfg.role.as_ref().unwrap(),
+        pubkey,
+        Some(&mut builder),
+    )
+    .await;
     match cert {
         Ok(x) => Ok(x.signed_key),
-        Err(err) => {
-            match err {
-                ClientError::APIError {
-                    code, errors
-                } => {
-                    Err(anyhow!(format!("Error code {}, errors {:?}", code, errors)))
-                }
-                x => {
-                    Err(anyhow!(x))
-                }
+        Err(err) => match err {
+            ClientError::APIError { code, errors } => {
+                Err(anyhow!(format!("Error code {}, errors {:?}", code, errors)))
             }
-        }
+            x => Err(anyhow!(x)),
+        },
     }
 }
 
@@ -102,7 +114,7 @@ fn get_key_from_keystore(host: &str, cfg: &Config) -> Result<String> {
         None => {
             return Err(anyhow!(KeystoreDirNotFound));
         }
-        Some(s) => s
+        Some(s) => s,
     };
     let dir = path::Path::new(dir);
     if !dir.exists() {
@@ -140,7 +152,11 @@ fn private_to_public(path: &str) -> PathBuf {
 pub fn clean_stale_keys(keystore_dir: &str, console: &dyn Console) -> u64 {
     let remove_key = |buff: &PathBuf| {
         if let Err(e) = fs::remove_file(buff) {
-            console.err(&format!("Could not remove stale key {} because {}", buff.to_string_lossy(), e))
+            console.err(&format!(
+                "Could not remove stale key {} because {}",
+                buff.to_string_lossy(),
+                e
+            ))
         }
     };
 
@@ -150,7 +166,10 @@ pub fn clean_stale_keys(keystore_dir: &str, console: &dyn Console) -> u64 {
         console.warn(&format!("Could not clean stale keys: {}", e));
         return 0;
     }
-    let curr_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    let curr_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     for file in files.unwrap() {
         let file = file.unwrap().path();
         let cert = Certificate::from_path(&file);
@@ -162,7 +181,10 @@ pub fn clean_stale_keys(keystore_dir: &str, console: &dyn Console) -> u64 {
                 }
             }
             Err(_) => {
-                console.warn(&format!("{} is not a valid certificate, removing...", file.to_string_lossy()));
+                console.warn(&format!(
+                    "{} is not a valid certificate, removing...",
+                    file.to_string_lossy()
+                ));
                 remove_key(&file);
             }
         };
