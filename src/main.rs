@@ -1,6 +1,8 @@
 use std::error::Error;
+use std::path::Path;
 use std::process::{Command, exit};
 
+use anyhow::{anyhow, Result};
 use clap::Parser;
 
 use vault_ssh_helper::{load_config, Opts};
@@ -22,7 +24,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = opts.args.clone();
 
     // Load the config
-    let config = load_config("config.toml", opts)?;
+    let config = load_config(&get_config_path()?, opts)?;
 
     let stale_keys_removed = vault_ssh_helper::ssh::clean_stale_keys(config.key_path.as_ref().unwrap(), console);
     if stale_keys_removed > 0 {
@@ -62,4 +64,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     Command::new("ssh").args(ssh_args).stdout(std::process::Stdio::inherit()).stdin(std::process::Stdio::inherit()).stderr(std::process::Stdio::inherit()).output()?;
     Ok(())
+}
+
+/// Loads the configuration file in the following order
+/// 1. config.toml in the current directory
+/// 2. VSSH_CONFIG environment variable
+/// 3. ~/.config/vault_ssh_helper.toml
+fn get_config_path() -> Result<String> {
+    fn file_exists(path: &str) -> bool {
+        Path::new(path).exists()
+    }
+    if file_exists("vault_ssh_config.toml") {
+        return Ok(String::from("vault_ssh_config.toml"));
+    } else {
+        if let Ok(v) = std::env::var("VSSH_CONFIG") {
+            return if file_exists(&v) {
+                Ok(v)
+            } else {
+                Err(anyhow!("Config file at {} not found", v))
+            }
+
+        } else {
+            let path = shellexpand::tilde("~/.config/vault_ssh_helper.toml");
+            if file_exists(&path[..]) {
+                return Ok(String::from(path));
+            }
+        }
+    }
+    return Err(anyhow!("Config file not found"));
 }
