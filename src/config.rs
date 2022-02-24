@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use serde::Deserialize;
 
-use crate::Error;
+use crate::{Error, Opts};
 use crate::Error::MissingArgumentError;
 
 #[derive(Deserialize, Debug, Default, Parser)]
@@ -71,7 +71,7 @@ impl Config {
 }
 
 /// Merge the provided config and cli config. The CLI config takes precedence over the provided config
-pub fn merge(config: Config, cli_config: Config) -> Result<Config> {
+pub fn merge(config: Config, cli_config: Opts) -> Result<Config> {
     Ok(Config {
         auth: do_merge("auth", config.auth, cli_config.auth, None, true)?,
         auth_mount: do_merge("auth_mount", config.auth_mount, cli_config.auth_mount, Some(String::from("ssh")), true)?,

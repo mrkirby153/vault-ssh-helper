@@ -15,3 +15,5 @@ clap = { version = "3.1.1", features = ["derive"] }
 vaultrs = "0.5.4"
 tokio = { version = "1.17.0", features = ["full"] }
 console = "0.15.0"
+sha256 = "1.0.3"
+sshkeys = "0.3.2"
