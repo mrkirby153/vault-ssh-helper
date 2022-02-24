@@ -7,6 +7,7 @@ pkgdesc="A ssh wrapper for hashicorp vault"
 arch=('any')
 url="https://github.com/mrkirby153/vault-ssh-helper"
 license=('MIT')
+depends=('openssh')
 makedepends=('cargo' 'git')
 provides=('vssh')
 conflicts=('vssh')
