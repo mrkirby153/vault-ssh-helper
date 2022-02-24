@@ -1,7 +1,7 @@
 use std::{fs, path};
 use std::fs::Permissions;
 use std::io::{BufReader, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 
 use anyhow::{anyhow, Result};
@@ -76,7 +76,6 @@ pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config, vau
 }
 
 async fn sign_key(user: &str, cfg: &Config, vault: &VaultClient, pubkey: &str) -> Result<String> {
-    dbg!(pubkey);
     let mut builder = SignSSHKeyRequest::builder();
     builder.valid_principals(user);
     let cert = ssh::ca::sign(vault, cfg.auth_mount.as_ref().unwrap(), cfg.role.as_ref().unwrap(), pubkey, Some(&mut builder)).await;
@@ -136,4 +135,37 @@ fn private_to_public(path: &str) -> PathBuf {
     let mut pathbuf = PathBuf::from(path);
     pathbuf.set_extension("pub");
     pathbuf
+}
+
+pub fn clean_stale_keys(keystore_dir: &str, console: &dyn Console) -> u64 {
+    let remove_key = |buff: &PathBuf| {
+        if let Err(e) = fs::remove_file(buff) {
+            console.err(&format!("Could not remove stale key {} because {}", buff.to_string_lossy(), e))
+        }
+    };
+
+    let mut deleted = 0;
+    let files = fs::read_dir(keystore_dir);
+    if let Err(e) = files {
+        console.warn(&format!("Could not clean stale keys: {}", e));
+        return 0;
+    }
+    let curr_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    for file in files.unwrap() {
+        let file = file.unwrap().path();
+        let cert = Certificate::from_path(&file);
+        match cert {
+            Ok(cert) => {
+                if curr_time > cert.valid_before {
+                    deleted += 1;
+                    remove_key(&file);
+                }
+            }
+            Err(_) => {
+                console.warn(&format!("{} is not a valid certificate, removing...", file.to_string_lossy()));
+                remove_key(&file);
+            }
+        };
+    }
+    deleted
 }

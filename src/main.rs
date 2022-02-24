@@ -23,6 +23,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Load the config
     let config = load_config("config.toml", opts)?;
+
+    let stale_keys_removed = vault_ssh_helper::ssh::clean_stale_keys(config.key_path.as_ref().unwrap(), console);
+    if stale_keys_removed > 0 {
+        console.info(&format!("Cleaned up {} stale keys...", stale_keys_removed))
+    }
     console.info("Checking vault token...");
     // Check if the vault token is valid
     let client = match get_vault_client(&config).await {
