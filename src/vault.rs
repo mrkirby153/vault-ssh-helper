@@ -6,10 +6,11 @@ use vaultrs::client::{Client, VaultClient, VaultClientSettingsBuilder};
 use vaultrs::sys::ServerStatus as VaultServerStatus;
 
 use crate::Config;
-use crate::Error::VaultTokenNotFound;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("No token was found. Run \"vault login\" to generate and save one")]
+    TokenNotFound,
     #[error("The vault is sealed")]
     VaultSealed,
     #[error("The vault token is not valid")]
@@ -18,7 +19,7 @@ pub enum Error {
     Uninitialized,
     #[error("The vault was in an invalid state: {0:?}")]
     InvalidState(VaultServerStatus),
-    #[error("An error occurred with the token: {0:?}")]
+    #[error("An error occurred with the token: {0}")]
     ClientError(vaultrs::error::ClientError),
     #[error("An unknown vault error occurred")]
     Generic,
@@ -27,10 +28,11 @@ pub enum Error {
 fn read_vault_token(token_file: &str) -> Result<String> {
     let path = path::Path::new(token_file);
     if !path.exists() {
-        return Err(anyhow! { VaultTokenNotFound });
+        return Err(anyhow! { Error::TokenNotFound });
     }
+
     let token = fs::read_to_string(token_file).map_err(|e| anyhow!(e))?;
-    return Ok(String::from(token));
+    Ok(token)
 }
 
 pub fn build_client(addr: &str, token_file: &str) -> Result<VaultClient> {
@@ -42,6 +44,7 @@ pub fn build_client(addr: &str, token_file: &str) -> Result<VaultClient> {
             .unwrap(),
     )
     .map_err(|e| anyhow!(e));
+
     client
 }
 
@@ -49,24 +52,25 @@ pub async fn get_vault_client(config: &Config) -> Result<VaultClient> {
     let client = build_client(
         config.vault_address.as_ref().unwrap(),
         config.token_path.as_ref().unwrap(),
-    );
-    let client = match client {
-        Ok(client) => client,
-        Err(e) => return Err(anyhow!(e)),
-    };
-    let status = client.status().await;
+    )
+    .map_err(|e| anyhow!(e))?;
+
+    let status = client
+        .status()
+        .await
+        .map_err(|e| anyhow!(Error::ClientError(e)))?;
+
     match status {
-        Ok(status) => match status {
-            VaultServerStatus::OK => match client.lookup().await {
-                Ok(_) => Ok(client),
-                Err(e) => Err(anyhow!(try_parse_api_error(e))),
-            },
-            VaultServerStatus::SEALED => Err(anyhow!(Error::VaultSealed)),
-            VaultServerStatus::UNINITIALIZED => Err(anyhow!(Error::Uninitialized)),
-            s => Err(anyhow!(Error::InvalidState(s))),
-        },
-        Err(e) => Err(anyhow!(Error::ClientError(e))),
-    }
+        VaultServerStatus::OK => client
+            .lookup()
+            .await
+            .map_err(|e| anyhow!(try_parse_api_error(e))),
+        VaultServerStatus::SEALED => Err(anyhow!(Error::VaultSealed)),
+        VaultServerStatus::UNINITIALIZED => Err(anyhow!(Error::Uninitialized)),
+        s => Err(anyhow!(Error::InvalidState(s))),
+    }?;
+
+    Ok(client)
 }
 
 fn try_parse_api_error(e: vaultrs::error::ClientError) -> Error {

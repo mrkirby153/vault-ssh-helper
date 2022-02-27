@@ -1,46 +1,37 @@
 use std::{fs, path};
 
 use anyhow::{anyhow, Result};
-use clap::Parser;
 use serde::Deserialize;
+use thiserror::Error;
 
-use crate::Error::MissingArgumentError;
-use crate::{Error, Opts};
+use crate::Opts;
 
-#[derive(Deserialize, Debug, Default, Parser)]
-#[clap(version, about)]
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Configuration parse failed: {source}")]
+    ConfigParseError { source: toml::de::Error },
+    #[error("An I/O error occurred: {source}")]
+    IOError {
+        #[from]
+        source: std::io::Error,
+    },
+    #[error("Missing parameter: {name}")]
+    MissingArgumentError { name: String },
+}
+
+#[derive(Deserialize, Debug)]
 pub struct Config {
-    /// The auth method to use
-    #[clap(short = 'a', long)]
     pub auth: Option<String>,
-    /// The auth mount
-    #[clap(short = 'm', long)]
     pub auth_mount: Option<String>,
-    /// The identity file to use. Defaults to ~/.ssh/id_rsa
-    #[clap(short, long)]
     pub identity: Option<String>,
-    /// Persist the vault token
-    #[clap(short, long)]
     pub persist: Option<bool>,
-    /// The role to use when authenticating
-    #[clap(short, long)]
     pub role: Option<String>,
-    /// Where on disk to store the keys. Defaults to ~/.local/share/vault_ssh_helper/keys
-    #[clap(short, long)]
     pub key_path: Option<String>,
-    /// Where on disk the token is stored. Defaults to ~/.vault_token
-    #[clap(short, long)]
     pub token_path: Option<String>,
-    /// The vault server to communicate with
-    #[clap(short, long)]
     pub vault_address: Option<String>,
 }
 
 impl Config {
-    pub fn parse_from_cli() -> Config {
-        Config::parse()
-    }
-
     fn new_empty() -> Config {
         Config {
             auth: None,
@@ -59,9 +50,11 @@ impl Config {
         if !fs_path.exists() {
             return Ok(Config::new_empty());
         }
+
         let contents = fs::read_to_string(path).map_err(|e| {
             anyhow! { Error::IOError {source: e}}
         })?;
+
         toml::from_str(&contents).map_err(|e| {
             anyhow! {
                 Error::ConfigParseError {source: e}
@@ -143,7 +136,7 @@ fn do_merge<T>(
                 Some(t) => Ok(Some(t)),
                 None => {
                     if required {
-                        Err(anyhow!(MissingArgumentError {
+                        Err(anyhow!(Error::MissingArgumentError {
                             name: String::from(name)
                         }))
                     } else {

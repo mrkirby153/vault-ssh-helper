@@ -4,11 +4,9 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::config::{merge, Config};
-pub use crate::errors::Error;
 
 pub mod config;
 pub mod console;
-mod errors;
 pub mod ssh;
 pub mod vault;
 
