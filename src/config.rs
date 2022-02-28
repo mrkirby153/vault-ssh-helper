@@ -3,6 +3,7 @@ use std::{fs, path};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use thiserror::Error;
+use tracing::debug;
 
 use crate::Opts;
 
@@ -65,6 +66,27 @@ impl Config {
 
 /// Merge the provided config and cli config. The CLI config takes precedence over the provided config
 pub fn merge(config: Config, cli_config: Opts) -> Result<Config> {
+    // Check if the vault address is set
+    let vault_addr_env = std::env::var("VAULT_ADDR");
+    let config_vault_addr = do_merge(
+        "vault_address",
+        config.vault_address,
+        cli_config.vault_address,
+        None,
+        false,
+    )?;
+
+    let vault_address = if let Some(x) = config_vault_addr {
+        debug!("Using vault address {} from configuration", x);
+        x
+    } else {
+        if let Ok(var) = vault_addr_env {
+            debug!("Using vault address {} from VAULT_ADDR", var);
+            var
+        } else {
+            String::from("http://localhost:8200")
+        }
+    };
     Ok(Config {
         auth: do_merge("auth", config.auth, cli_config.auth, None, true)?,
         auth_mount: do_merge(
@@ -103,13 +125,7 @@ pub fn merge(config: Config, cli_config: Opts) -> Result<Config> {
             Some(String::from("~/.vault-token")),
             true,
         )?),
-        vault_address: do_merge(
-            "vault_address",
-            config.vault_address,
-            cli_config.vault_address,
-            Some(String::from("https://localhost:8200")),
-            true,
-        )?,
+        vault_address: Some(vault_address),
     })
 }
 

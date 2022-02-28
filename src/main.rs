@@ -1,14 +1,14 @@
 use std::error::Error;
 use std::path::Path;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use vault_ssh_helper::{load_config, Opts};
 use vault_ssh_helper::console::{ColorConsole, Console, PlainConsole};
+use vault_ssh_helper::{load_config, Opts};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -22,7 +22,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let console = console.as_ref();
 
     if opts.debug {
-        let sub = FmtSubscriber::builder().with_max_level(Level::DEBUG).finish();
+        let sub = FmtSubscriber::builder()
+            .with_max_level(Level::DEBUG)
+            .finish();
         tracing::subscriber::set_global_default(sub).expect("Setting log subscriber failed")
     }
 
@@ -58,8 +60,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         console.err(&format!("Error: {}", e)[..]);
         exit(1);
     }
-    let certificate_path =
-        vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config).await.unwrap_or_else(|e| {
+    let certificate_path = vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config)
+        .await
+        .unwrap_or_else(|e| {
             console.err(&format!("{}", e));
             exit(1);
         });

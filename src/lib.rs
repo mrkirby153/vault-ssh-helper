@@ -23,7 +23,7 @@ pub struct Opts {
     #[clap(short = 'b', long)]
     pub basic: bool,
     /// Enable debug logging
-    #[clap(short='d', long)]
+    #[clap(short = 'd', long)]
     pub debug: bool,
     /// The identity file to use. Defaults to ~/.ssh/id_rsa
     #[clap(short, long)]

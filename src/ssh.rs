@@ -13,8 +13,8 @@ use vaultrs::ssh;
 
 use crate::console::Console;
 use crate::ssh::Error::{KeystoreDirNotFound, VaultApiError};
-use crate::Config;
 use crate::vault::get_vault_client;
+use crate::Config;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -58,7 +58,11 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
         .as_secs();
     let is_expired = curr_time > cert.valid_before;
 
-    debug!("Contains principal {}? {}", user, cert.valid_principals.contains(&user.to_string()));
+    debug!(
+        "Contains principal {}? {}",
+        user,
+        cert.valid_principals.contains(&user.to_string())
+    );
     debug!("Expired? {}", is_expired);
 
     if !cert.valid_principals.contains(&user.to_string()) || is_expired {
@@ -69,11 +73,7 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
 }
 
 /// Gets the signed key if it is valid, otherwise sign it
-pub async fn get_or_sign_key(
-    host: &str,
-    logger: &dyn Console,
-    cfg: &Config
-) -> Result<String> {
+pub async fn get_or_sign_key(host: &str, logger: &dyn Console, cfg: &Config) -> Result<String> {
     let keyfile_path = get_key_from_keystore(host, cfg)?;
     let pubkey = fs::read_to_string(private_to_public(cfg.identity.as_ref().unwrap()))?;
 
