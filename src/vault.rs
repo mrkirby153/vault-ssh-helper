@@ -19,7 +19,7 @@ pub enum Error {
     Uninitialized,
     #[error("The vault was in an invalid state: {0:?}")]
     InvalidState(VaultServerStatus),
-    #[error("An error occurred with the token: {0}")]
+    #[error("An error occurred: {0}")]
     ClientError(vaultrs::error::ClientError),
     #[error("An unknown vault error occurred")]
     Generic,

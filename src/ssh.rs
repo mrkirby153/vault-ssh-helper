@@ -13,6 +13,7 @@ use vaultrs::ssh;
 use crate::console::Console;
 use crate::ssh::Error::{KeystoreDirNotFound, VaultApiError};
 use crate::Config;
+use crate::vault::get_vault_client;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -66,8 +67,7 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
 pub async fn get_or_sign_key(
     host: &str,
     logger: &dyn Console,
-    cfg: &Config,
-    vault: &VaultClient,
+    cfg: &Config
 ) -> Result<String> {
     let keyfile_path = get_key_from_keystore(host, cfg)?;
     let pubkey = fs::read_to_string(private_to_public(cfg.identity.as_ref().unwrap()))?;
@@ -89,7 +89,8 @@ pub async fn get_or_sign_key(
     };
 
     if needs_sign {
-        let signed_pubkey = sign_key(&user, cfg, vault, &pubkey).await?;
+        let vault = get_vault_client(cfg).await?;
+        let signed_pubkey = sign_key(&user, cfg, &vault, &pubkey).await?;
 
         fs::write(&keyfile_path, signed_pubkey.as_bytes())?;
         // Ensure proper permissions for ssh keyfile

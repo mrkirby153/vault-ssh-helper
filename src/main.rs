@@ -6,7 +6,6 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 
 use vault_ssh_helper::console::{ColorConsole, Console, PlainConsole};
-use vault_ssh_helper::vault::get_vault_client;
 use vault_ssh_helper::{load_config, Opts};
 
 #[tokio::main]
@@ -33,12 +32,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         console.info(&format!("Cleaned up {} stale keys...", stale_keys_removed))
     }
 
-    // Check if the vault token is valid
-    let client = get_vault_client(&config).await.unwrap_or_else(|e| {
-        console.err(&format!("Error validating vault token: {}", e));
-        exit(1);
-    });
-
     // Check if the ssh keyfile exists
     let ssh_path = config.identity.as_ref().unwrap_or_else(|| {
         console.err("Identity file not specified");
@@ -55,7 +48,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         exit(1);
     }
     let certificate_path =
-        vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config, &client).await?;
+        vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config).await.unwrap_or_else(|e| {
+            console.err(&format!("{}", e));
+            exit(1);
+        });
 
     console.info(&format!(
         "Using {} to connect to {}",
