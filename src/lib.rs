@@ -10,7 +10,7 @@ pub mod console;
 pub mod ssh;
 pub mod vault;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(version, about)]
 pub struct Opts {
     /// The auth method to use
@@ -22,6 +22,9 @@ pub struct Opts {
     /// Disable terminal effects
     #[clap(short = 'b', long)]
     pub basic: bool,
+    /// Enable debug logging
+    #[clap(short='d', long)]
+    pub debug: bool,
     /// The identity file to use. Defaults to ~/.ssh/id_rsa
     #[clap(short, long)]
     pub identity: Option<String>,

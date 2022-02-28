@@ -5,6 +5,7 @@ use std::{fs, path};
 use anyhow::{anyhow, Result};
 use sshkeys::Certificate;
 use thiserror::Error;
+use tracing::debug;
 use vaultrs::api::ssh::requests::SignSSHKeyRequest;
 use vaultrs::client::VaultClient;
 use vaultrs::error::ClientError;
@@ -43,6 +44,7 @@ pub fn check_ssh_file(path: &str) -> Result<()> {
 }
 
 pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
+    debug!("Checking validity of certificate {}", path);
     let cert = match Certificate::from_path(path) {
         Ok(x) => x,
         Err(_) => {
@@ -55,6 +57,9 @@ pub fn is_certificate_valid(path: &str, user: &str) -> Result<bool> {
         .unwrap()
         .as_secs();
     let is_expired = curr_time > cert.valid_before;
+
+    debug!("Contains principal {}? {}", user, cert.valid_principals.contains(&user.to_string()));
+    debug!("Expired? {}", is_expired);
 
     if !cert.valid_principals.contains(&user.to_string()) || is_expired {
         Ok(false)
@@ -89,9 +94,10 @@ pub async fn get_or_sign_key(
     };
 
     if needs_sign {
+        debug!("Initializing vault client");
         let vault = get_vault_client(cfg).await?;
         let signed_pubkey = sign_key(&user, cfg, &vault, &pubkey).await?;
-
+        debug!("Writing signed key to {}", &keyfile_path);
         fs::write(&keyfile_path, signed_pubkey.as_bytes())?;
         // Ensure proper permissions for ssh keyfile
         fs::set_permissions(
@@ -105,6 +111,7 @@ pub async fn get_or_sign_key(
 }
 
 async fn sign_key(user: &str, cfg: &Config, vault: &VaultClient, pubkey: &str) -> Result<String> {
+    debug!("Signing key {} with principal {}", pubkey, user);
     let mut builder = SignSSHKeyRequest::builder();
     builder.valid_principals(user);
 
@@ -134,6 +141,7 @@ fn get_key_from_keystore(host: &str, cfg: &Config) -> Result<String> {
         }
         Some(s) => s,
     };
+    debug!("Retrieving key for {} from keystore", host);
     let dir = path::Path::new(dir);
 
     if !dir.exists() {
@@ -141,11 +149,13 @@ fn get_key_from_keystore(host: &str, cfg: &Config) -> Result<String> {
     }
 
     let path = dir.join(sha256::digest(host));
+    debug!("Reading key: {:?}", &path);
     Ok(String::from(path.as_path().to_str().unwrap()))
 }
 
 /// Gets the actual user that the ssh client will use to connect
 fn get_ssh_user(host: &str) -> Result<String> {
+    debug!("Retrieving ssh user for host {}", host);
     let cmd = Command::new("ssh").arg("-G").arg(host).output()?;
     if !cmd.status.success() {
         return Err(anyhow!(SshError::UserNotFound));
@@ -161,7 +171,9 @@ fn get_ssh_user(host: &str) -> Result<String> {
                     host: String::from(host)
                 }));
             }
-            return Ok(line[1].to_string());
+            let user = line[1].to_string();
+            debug!("Found user for {}: {}", host, user);
+            return Ok(user);
         }
     }
     Err(anyhow!(SshError::UserNotFound))
@@ -175,6 +187,7 @@ fn private_to_public(path: &str) -> PathBuf {
 
 pub fn clean_stale_keys(keystore_dir: &str, console: &dyn Console) -> u64 {
     let remove_key = |buff: &PathBuf| {
+        debug!("Removing key {:?}", buff);
         if let Err(e) = fs::remove_file(buff) {
             console.err(&format!(
                 "Could not remove stale key {} because {}",

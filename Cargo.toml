@@ -17,3 +17,5 @@ tokio = { version = "1.17.0", features = ["full"] }
 console = "0.15.0"
 sha256 = "1.0.3"
 sshkeys = "0.3.2"
+tracing = "0.1.31"
+tracing-subscriber = "0.3.9"
