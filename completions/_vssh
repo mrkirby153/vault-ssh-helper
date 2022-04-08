@@ -1,0 +1,57 @@
+#compdef vssh
+
+_vssh_commands() {
+    local oldcontext="$curcontext"
+    local curcontext="${curcontext%:*:*}:ssh:"
+    words=("ssh" "${words[-1]}") CURRENT=2 service=ssh _ssh
+    curcontext="$oldcontext"
+}
+
+_vssh() {
+    local curcontext=$curcontext state state_descr line
+    declare -A opt_args
+
+    _arguments -C \
+        '-a[The auth method to use]' \
+        '--auth[The auth method to use]'\
+        '-b[Disable terminal effects]' \
+        '--basic[Disable terminal effects]' \
+        '-d[Enable debug logging]' \
+        '--debug[Enable debug logging]' \
+        '-h[Print help information]' \
+        '--help[Print help information]' \
+        '-i[The identity file to use]: :_files -/' \
+        '--identity[The identity file to use]: :_files -/' \
+        '-k[Where on the disk to store keys]: :_files -/' \
+        '--key-path[Where on the disk to store keys]: :_files -/' \
+        '-m[Where the ssh auth provider is mounted]' \
+        '--mount[Where the ssh auth provider is mounted]' \
+        '-r[The role to use]' \
+        '--role[The role to use]' \
+        '-t[Where to store the vault token]: :_files -/' \
+        '--token[Where to store the vault token]: :_files -/' \
+        '-V[Print version information]' \
+        '--version[Print version information]' \
+        '(-): :->command' \
+        '(-)*:: :->option-or-argument' && return
+
+    integer _ret=1
+    case $state in
+        (command)
+            _vssh_commands && _ret=0
+            ;;
+        (option-or-argument)
+            curcontext=${curcontext%:*:*}:vssh-${words[1]}:
+
+            words=("ssh" "${(@)words}")
+            CURRENT=$(( CURRENT + 1 ))
+
+            curcontext=${curcontext%:*:*}:git:
+            service=ssh _ssh && _ret=0
+            ;;
+    esac
+    return _ret
+}
+
+
+(( $+functions[_ssh] )) && _vssh
