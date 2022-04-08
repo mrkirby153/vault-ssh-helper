@@ -1,6 +1,6 @@
 # Maintainer: mrkirby153 <mrkirby153@mrkirby153.com>
 pkgname=vault-ssh-helper-git
-pkgver=r4.7be1230
+pkgver=r17.27887da
 pkgrel=1
 epoch=
 pkgdesc="A ssh wrapper for hashicorp vault"
@@ -12,7 +12,7 @@ makedepends=('cargo' 'git')
 provides=('vssh')
 conflicts=('vssh')
 replaces=()
-source=("${pkgname%-git}::git://github.com/mrkirby153/vault-ssh-helper.git")
+source=("${pkgname%-git}::git+https://github.com/mrkirby153/vault-ssh-helper.git")
 sha256sums=('SKIP')
 
 pkgver() {
@@ -28,4 +28,5 @@ build() {
 package() {
   cd "$srcdir/${pkgname%-git}"
   install -Dm755 target/release/vault-ssh-helper "${pkgdir}/usr/bin/vssh"
+  install -Dm644 completions/_vssh "${pkgdir}/usr/share/zsh/site-functions/_vssh"
 }
