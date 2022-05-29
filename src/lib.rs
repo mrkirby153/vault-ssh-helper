@@ -43,6 +43,8 @@ pub struct Opts {
     /// The vault server to communicate with
     #[clap(short, long)]
     pub vault_address: Option<String>,
+    #[clap(long)]
+    pub proxy: bool,
 
     /// The SSH host to connect to
     pub host: String,

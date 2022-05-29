@@ -1,14 +1,16 @@
+use std::env;
 use std::error::Error;
 use std::path::Path;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use vault_ssh_helper::{load_config, Opts, ssh};
 use vault_ssh_helper::console::{ColorConsole, Console, PlainConsole};
-use vault_ssh_helper::{load_config, Opts};
+use vault_ssh_helper::ssh::remove_key_from_agent;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -33,6 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Clone these so we can use them later
     let host = opts.host.clone();
     let args = opts.args.clone();
+    let proxy = opts.proxy;
 
     // Load the config
     let config = load_config(&get_config_path()?, opts)?;
@@ -56,36 +59,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
         host, ssh_path
     ));
 
-    if let Err(e) = vault_ssh_helper::ssh::check_ssh_file(&ssh_path[..]) {
+    if let Err(e) = ssh::check_ssh_file(&ssh_path[..]) {
         console.err(&format!("Error: {}", e)[..]);
         exit(1);
     }
-    let certificate_path = vault_ssh_helper::ssh::get_or_sign_key(&host, console, &config)
-        .await
-        .unwrap_or_else(|e| {
-            console.err(&format!("{}", e));
-            exit(1);
-        });
 
-    console.info(&format!(
-        "Using {} to connect to {}",
-        certificate_path, host
-    ));
+    if proxy {
+        let temp_dir = env::temp_dir();
+        let temp_keystore_path = temp_dir.to_str().unwrap();
+        let key_path = ssh::generate_temp_ssh_key_and_add_to_agent(temp_keystore_path, &host, console, &config, Some(true)).await?;
+        ssh::raw_tunnel(&host, key_path).await?;
+    } else {
+        let certificate_path = ssh::get_or_sign_key(&host, console, &config)
+            .await
+            .unwrap_or_else(|e| {
+                console.err(&format!("{}", e));
+                exit(1);
+            });
 
-    // Start ssh
-    let ssh_args = vec![&host[..], "-i", ssh_path, "-i", &certificate_path];
-    let mut ssh_args: Vec<String> = ssh_args.iter().map(|x| String::from(*x)).collect();
-    for arg in args {
-        ssh_args.push(arg);
+        console.info(&format!(
+            "Using {} to connect to {}",
+            certificate_path, host
+        ));
+
+        // Start ssh
+        let ssh_args = vec![&host[..], "-i", ssh_path, "-i", &certificate_path];
+        let mut ssh_args: Vec<String> = ssh_args.iter().map(|x| String::from(*x)).collect();
+        for arg in args {
+            ssh_args.push(arg);
+        }
+
+        debug!("Executing \"ssh {}\"", ssh_args.join(" "));
+        Command::new("ssh")
+            .args(ssh_args)
+            .stdout(std::process::Stdio::inherit())
+            .stdin(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .output()?;
     }
-
-    debug!("Executing \"ssh {}\"", ssh_args.join(" "));
-    Command::new("ssh")
-        .args(ssh_args)
-        .stdout(std::process::Stdio::inherit())
-        .stdin(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .output()?;
     Ok(())
 }
 
